@@ -65,15 +65,13 @@ func run() error {
 	}
 
 	// try to read the file
-	info, err := client.HeadObject(ctx, &s3.HeadObjectInput{
+	_, err := client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filename),
 	})
 	if err != nil {
 		return err
 	}
-
-	log.Printf("info: %+v", info)
 
 	return nil
 }
