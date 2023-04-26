@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -46,12 +48,29 @@ func TestMain(m *testing.M) {
 		log.Fatalf("error starting localstack: %s", err)
 	}
 
+	type hcResponse struct {
+		Services struct {
+			S3 string `json:"s3"`
+		} `json:"services"`
+	}
+
 	if err := pool.Retry(func() error {
-		_, err := http.Get("http://127.0.0.1:4566")
+		resp, err := http.Get("http://127.0.0.1:4566/_localstack/health")
 		if err != nil {
 			return err
 		}
-		return nil
+		defer resp.Body.Close()
+
+		var response hcResponse
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return err
+		}
+
+		if response.Services.S3 == "available" {
+			return nil
+		}
+
+		return errors.New("S3 not available")
 	}); err != nil {
 		log.Fatalf("could not connect to localstack: %s", err)
 	}
