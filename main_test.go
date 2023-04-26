@@ -10,6 +10,10 @@ import (
 	"github.com/ory/dockertest/v3/docker"
 )
 
+const (
+	localStackVersion = "2.0.2"
+)
+
 func TestMain(m *testing.M) {
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -22,7 +26,7 @@ func TestMain(m *testing.M) {
 
 	options := &dockertest.RunOptions{
 		Repository: "localstack/localstack",
-		Tag:        "2.0.2",
+		Tag:        localStackVersion,
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"4566/tcp": {
 				{
@@ -54,6 +58,7 @@ func TestMain(m *testing.M) {
 
 	exitCode := m.Run()
 
+	// this can't be deferred, because of the os.Exit() call below.
 	if err := pool.Purge(resource); err != nil {
 		log.Fatalf("could not purge resources: %s", err)
 	}
