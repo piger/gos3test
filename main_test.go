@@ -106,6 +106,7 @@ func testConfig(hostPort string) aws.Config {
 // testS3Client creates an S3 client from the given AWS configuration, and configure it
 // to use "Path Style" (i.e. http://s3.amazonaws.com/BUCKET-NAME/key); this is needed to use S3
 // with localstack without having to create custom DNS entries for each bucket.
+// See also: https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/service/s3/internal/customizations#UpdateEndpointOptions
 func testS3Client(cfg aws.Config) *s3.Client {
 	return s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = true
@@ -128,12 +129,30 @@ func TestBucketFileExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	found, err := prog.BucketFileExists(ctx, bucket, filename)
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		Filename string
+		Result   bool
+	}{
+		{
+			Filename: "foo.bar",
+			Result:   true,
+		},
+		{
+			Filename: "boop",
+			Result:   false,
+		},
 	}
 
-	if !found {
-		t.Fatal("file not found")
+	for _, test := range tests {
+		t.Run(test.Filename, func(t *testing.T) {
+			found, err := prog.BucketFileExists(ctx, bucket, test.Filename)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if found != test.Result {
+				t.Fatalf("expected %v, got %v", test.Result, found)
+			}
+		})
 	}
 }

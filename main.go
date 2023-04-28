@@ -11,7 +11,7 @@ import (
 
 const (
 	bucket   = "test"
-	filename = "foo.bar2"
+	filename = "foo.bar"
 )
 
 func run() error {

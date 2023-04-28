@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -38,10 +41,13 @@ func (p *Program) BucketFileExists(ctx context.Context, bucket, filename string)
 		Bucket: aws.String(bucket),
 		Key:    aws.String(filename),
 	}); err != nil {
+		var responsError *awshttp.ResponseError
+		if errors.As(err, &responsError) && responsError.HTTPStatusCode() == http.StatusNotFound {
+			return false, nil
+		}
+
 		return false, err
 	}
 
-	// assume no error from HeadOjbect means that the object exists; ideally the error
-	// checking above would differentiate between 403 and 404.
 	return true, nil
 }
