@@ -2,26 +2,30 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 const (
 	bucket   = "test"
-	filename = "foo.bar"
+	filename = "foo.bar2"
 )
+
+type Configurer func() aws.Config
 
 // testConfig creates an AWS configuration using test credentials and an endpoint resolver
 // that points to localstack on localhost.
-func testConfig() aws.Config {
+func testConfig(hostPort string) aws.Config {
 	endpointResolver := func(service, region string, options ...any) (aws.Endpoint, error) {
 		return aws.Endpoint{
 			PartitionID:   "aws",
-			URL:           "http://localhost:4566",
+			URL:           fmt.Sprintf("http://%s", hostPort),
 			SigningRegion: "us-east-1",
 		}, nil
 	}
@@ -33,6 +37,14 @@ func testConfig() aws.Config {
 	}
 }
 
+func normalConfig() aws.Config {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
 // testS3Client creates an S3 client from the given AWS configuration, and configure it
 // to use "Path Style" (i.e. http://s3.amazonaws.com/BUCKET-NAME/key); this is needed to use S3
 // with localstack without having to create custom DNS entries for each bucket.
@@ -42,10 +54,9 @@ func testS3Client(cfg aws.Config) *s3.Client {
 	})
 }
 
-func run() error {
+func run(cfg aws.Config) error {
 	ctx := context.Background()
 
-	cfg := testConfig()
 	client := testS3Client(cfg)
 
 	// create the bucket
@@ -77,7 +88,7 @@ func run() error {
 }
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(normalConfig()); err != nil {
 		log.Fatalf("error: %s", err)
 	}
 }

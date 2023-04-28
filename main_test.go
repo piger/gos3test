@@ -3,18 +3,21 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
 )
 
 const (
 	localStackVersion = "2.0.2"
 )
+
+var dockerResource *dockertest.Resource
 
 func TestMain(m *testing.M) {
 	pool, err := dockertest.NewPool("")
@@ -27,20 +30,9 @@ func TestMain(m *testing.M) {
 	}
 
 	options := &dockertest.RunOptions{
-		Repository: "localstack/localstack",
-		Tag:        localStackVersion,
-		PortBindings: map[docker.Port][]docker.PortBinding{
-			"4566/tcp": {
-				{
-					HostPort: "4566",
-				},
-			},
-			"4572/tcp": {
-				{
-					HostPort: "4572",
-				},
-			},
-		},
+		Repository:   "localstack/localstack",
+		Tag:          localStackVersion,
+		ExposedPorts: []string{"4566/tcp", "4572/tcp"},
 	}
 
 	resource, err := pool.RunWithOptions(options)
@@ -55,7 +47,9 @@ func TestMain(m *testing.M) {
 	}
 
 	if err := pool.Retry(func() error {
-		resp, err := http.Get("http://127.0.0.1:4566/_localstack/health")
+		healthCheckURL := fmt.Sprintf("http://%s/_localstack/health", net.JoinHostPort("localhost", resource.GetPort("4566/tcp")))
+
+		resp, err := http.Get(healthCheckURL)
 		if err != nil {
 			return err
 		}
@@ -75,6 +69,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("could not connect to localstack: %s", err)
 	}
 
+	dockerResource = resource
+
 	exitCode := m.Run()
 
 	// this can't be deferred, because of the os.Exit() call below.
@@ -86,7 +82,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestHeadObject(t *testing.T) {
-	if err := run(); err != nil {
+	hostPort := fmt.Sprintf("localhost:%s", dockerResource.GetPort("4566/tcp"))
+	awsConfig := testConfig(hostPort)
+
+	if err := run(awsConfig); err != nil {
 		t.Fatal(err)
 	}
 }
